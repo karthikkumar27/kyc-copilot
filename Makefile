@@ -1,4 +1,4 @@
-.PHONY: up down logs seed test lint migrate shell gcp-push
+.PHONY: up down logs ui-logs seed test lint migrate shell gcp-push
 
 up:            ## Build and start the local stack
 	docker compose up -d --build
@@ -7,7 +7,10 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f api worker litellm
+	docker compose logs -f api worker litellm ui
+
+ui-logs:       ## Follow the web console logs
+	docker compose logs -f ui
 
 migrate:
 	docker compose run --rm migrate
