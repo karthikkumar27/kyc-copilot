@@ -55,22 +55,33 @@ browser :8501 ──> ui (Streamlit) ──HTTP──> api :8000 ──> existin
 ```
 ui/
   Dockerfile
-  requirements.txt           exact pinned versions (chosen at implementation time)
+  .dockerignore              keeps tests out of the image
+  requirements.txt           streamlit==1.64.0, httpx==0.28.1
+  requirements-dev.txt       requirements.txt + pytest==9.1.1
   .streamlit/config.toml     server.maxUploadSize = 20 (matches the API's MAX_UPLOAD_MB; the API is authoritative)
   app.py                     entry point: page config, st.navigation, sidebar
-  api_client.py              the only module that makes HTTP calls
+  api_client.py              the only module that makes HTTP calls; also validate_ask_input()
   identity.py                current Identity (dev: from the sidebar)
-  formatting.py              pure helpers: escape_md, badges, citation lines
-  scenario_data.py           the fixed list of demo scenarios (data)
+  deps.py                    wiring: settings from env, get_client(), cached readiness()
+  components.py              shared rendering: show_error(), render_status()
+  formatting.py              pure helpers: escape_md, citation lines, status icons, titles
+  scenario_data.py           the fixed list of demo scenarios (data) and shared session keys
   pages/
     ask.py
     documents.py
     scenarios.py
   tests/
+    conftest.py              puts ui/ on sys.path
+    fakes.py                 FakeClient + AppTest helpers
     test_api_client.py
     test_formatting.py
-    test_pages.py
+    test_ask_page.py
+    test_scenarios_page.py
+    test_documents_page.py
 ```
+
+*Refined while planning (2026-10-12):* `deps.py`, `components.py` and the test helpers were
+added so that each module has one job; `test_pages.py` was split per page.
 
 ### 2.2 Units
 
@@ -115,10 +126,12 @@ Suggested reply ┌────────────────────�
 - **Badges:** "Escalate" when `needs_escalation`, "Insufficient context" when
   `insufficient_context`, then the model (or "no model call"), the latency in seconds and the
   short request ID.
-- **Answer:** model output passed through `escape_md()` (links, images and HTML are not rendered;
-  `[n]` markers are kept).
-- **Sources:** one `citation_line()` per citation. The API does not return chunk text, so none is
-  shown.
+- **Answer:** model output shown with `st.text`, which does no Markdown or HTML processing at all,
+  so links, images and HTML cannot be rendered and `[n]` markers stay as typed. *(Refined while
+  planning: stronger than escaping. `escape_md()` is kept for text we did not write that goes
+  into Markdown widgets, such as expander labels and health-check messages.)*
+- **Sources:** one `citation_line()` per citation, also shown with `st.text`. The API does not
+  return chunk text, so none is shown.
 - **Suggested reply:** shown in `st.code(..., language=None)` for the built-in copy button.
   Hidden when it is empty.
 - **History:** the last 20 results in this tab, each in a collapsed expander titled with the role,
@@ -168,6 +181,8 @@ Selected: <filename>   [Re-ingest] (supervisor+)   [Delete] (admin)
   multi-select (default all three, at least one required); `source_type` select (`sop`,
   `regulation`, `faq`, `script`). On success, a toast: "Queued" or "Already in the knowledge base
   (deduplicated)".
+- **Selection:** supervisors and admins pick the document to act on with a "Selected document"
+  drop-down under the table (Streamlit's test harness cannot click table rows).
 - **Re-ingest:** button plus caption: "On the local stack, a re-ingest within 1 hour of the last
   run may not start (TSD T1)."
 - **Delete:** an `st.dialog` confirmation naming the file and stating that its chunks and stored
@@ -205,14 +220,20 @@ Written test-first. All tests are under `ui/tests/`. The root `pytest` (whose `t
 - **`test_formatting.py`**: `escape_md` makes `[x](http://…)`, `![i](…)`, `<script>` and heading
   or emphasis markers inert, while keeping `[1]` citation markers readable; `citation_line` handles
   a `None` page; `status_icon` covers every status.
-- **`test_pages.py`** (Streamlit `AppTest` with a fake client): the restricted notice renders
-  before the answer; role `agent` sees no upload or delete controls and `admin` sees both; a
+- **`test_ask_page.py`, `test_scenarios_page.py`, `test_documents_page.py`** (Streamlit `AppTest`
+  with a fake client): the restricted notice renders before the answer; model output is never
+  rendered as Markdown; role `agent` sees no upload or delete controls and `admin` sees both; a
   scenario's Run sets the role and submits exactly once; a `failed` document shows its error; an
-  unavailable API shows the unreachable message.
+  unavailable API shows the unreachable message; polling switches off when nothing is pending.
 
 **CI:** a new `ui` job in `.github/workflows/ci.yml` (Python 3.12, `pip install -r
-ui/requirements.txt pytest`, `pytest ui/tests -q`). The existing `ruff check .` already covers
+ui/requirements-dev.txt`, `pytest ui/tests -q`). The existing `ruff check .` already covers
 `ui/`. The `build` job also runs `docker build ui`.
+
+*Found while planning:* CI installs `ruff>=0.5` unpinned, and ruff 0.17 enables more rules by
+default, so the existing backend already fails `ruff check .` (23 findings). The plan's first task
+sets `select = ["E4", "E7", "E9", "F"]` explicitly in `pyproject.toml`, which restores the rule
+set the code was written against; the backend and UI both pass with it.
 
 **Manual acceptance:** `make up && make seed`, then run all seven scenarios at
 http://localhost:8501 and exercise upload, re-ingest and delete as `admin`.
