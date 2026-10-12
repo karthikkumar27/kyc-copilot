@@ -1,0 +1,7 @@
+[server]
+# Matches the API's MAX_UPLOAD_MB (default 20). The API's limit is the one that counts.
+maxUploadSize = 20
+headless = true
+
+[browser]
+gatherUsageStats = false

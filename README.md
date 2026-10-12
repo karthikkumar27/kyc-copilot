@@ -37,10 +37,13 @@ Prerequisites: Docker, and a Gemini API key from Google AI Studio (free tier is 
 
 ```bash
 cp .env.example .env          # add GEMINI_API_KEY (and ANTHROPIC_API_KEY for the fallback model)
-make up                       # postgres, redis, litellm, migrate, api, worker
+make up                       # postgres, redis, litellm, migrate, api, worker, ui
 make seed                     # uploads the 4 synthetic SOPs through the real ingestion path
 curl -s localhost:8000/documents -H 'X-User-Role: admin' | jq '.[] | {filename, status, chunk_count}'
 ```
+
+Or open the web console at **http://localhost:8501**: ask questions, run the demo scenarios
+below with one click, and manage the knowledge base. Pick a role in the sidebar.
 
 Ask a question as an agent:
 
@@ -72,6 +75,7 @@ app/
   kyc/            live status provider + deterministic disclosure policy
   rag/            chunking, ingestion, hybrid retrieval, prompting, answer flow
   db/             models, session, audit
+ui/               Streamlit web console (local): Ask, Demo scenarios, Knowledge base
 config/litellm/   gateway config per environment (local, gcp, aws*, azure*)
 deploy/terraform/ gcp (working), aws* and azure* (placeholders)
 migrations/       Alembic (pgvector, full-text, append-only audit trigger)

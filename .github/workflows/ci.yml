@@ -17,12 +17,23 @@ jobs:
       - run: ruff check .
       - run: pytest -q
 
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r ui/requirements-dev.txt
+      - run: pytest ui/tests -q
+
   build:
-    needs: test
+    needs: [test, ui]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t kyc-copilot:ci .
+      - run: docker build -t kyc-copilot-ui:ci ui
 
   # Week 3: eval job (golden set + DeepEval/RAGAS) that fails the build below thresholds.
   # Week 6: deploy-gcp job (Workload Identity Federation -> build/push -> migrate -> terraform apply).

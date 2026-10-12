@@ -61,6 +61,16 @@ services:
       redis: {condition: service_started}
       litellm: {condition: service_started}
 
+  ui:
+    build: ./ui
+    image: kyc-copilot-ui:local
+    environment:
+      KYC_API_URL: http://api:8000
+      KYC_UI_AUTH_MODE: dev
+    ports: ["8501:8501"]
+    depends_on:
+      api: {condition: service_started}
+
 volumes:
   pgdata:
   uploads:
