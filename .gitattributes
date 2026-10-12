@@ -1,0 +1,2 @@
+# Containers run Linux: keep LF line endings in the working copy on every OS.
+* text=auto eol=lf
