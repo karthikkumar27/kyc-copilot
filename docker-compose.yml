@@ -17,7 +17,7 @@ services:
       POSTGRES_USER: kyc
       POSTGRES_PASSWORD: kyc
       POSTGRES_DB: kyc
-    ports: ["5432:5432"]
+    ports: ["${POSTGRES_HOST_PORT:-5432}:5432"]  # host side only; containers use postgres:5432
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kyc -d kyc"]
@@ -32,7 +32,12 @@ services:
     # Pin a specific release tag before relying on this beyond local dev.
     image: ghcr.io/berriai/litellm:main-stable
     command: ["--config", "/app/config.yaml", "--port", "4000"]
-    env_file: .env
+    # Only what config/litellm/local.yaml reads (values come from .env). Not env_file: the app's
+    # DATABASE_URL (postgresql+asyncpg) would make LiteLLM try to use it as its own DB and exit.
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY in .env}
     volumes:
       - ./config/litellm/local.yaml:/app/config.yaml:ro
     ports: ["4000:4000"]

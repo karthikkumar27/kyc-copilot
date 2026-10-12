@@ -748,6 +748,12 @@ The full OWASP LLM Top 10 mapping is in [`governance/risk_register.md`](../gover
 api, worker. `make seed` uploads the four SOPs through the API (SOP-SUP-04 tagged
 `supervisor,admin`). `make test` and `make lint` run inside the API container. The `ui` service serves the console at http://localhost:8501; `make ui-logs` follows its logs.
 
+Locally the `litellm` service gets only `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` and
+`LITELLM_MASTER_KEY` (interpolated from `.env`), not the whole `.env`: given the app's
+`DATABASE_URL` (`postgresql+asyncpg://…`), LiteLLM tries to use it as its own database and
+exits. Postgres is published on host port `POSTGRES_HOST_PORT` (default 5432); containers
+always use `postgres:5432`.
+
 ### 12.2 GCP (`deploy/terraform/gcp/`)
 
 ```mermaid
