@@ -23,4 +23,4 @@ for scenario in SCENARIOS:
         st.text(scenario.question)
         st.caption(f"Look for: {scenario.look_for}")
         if st.button("Run", key=f"run_{scenario.id}", on_click=prepare, args=(scenario,)):
-            st.switch_page("pages/ask.py")
+            st.switch_page("views/ask.py")

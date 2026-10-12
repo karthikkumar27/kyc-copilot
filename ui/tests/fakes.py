@@ -40,6 +40,7 @@ class FakeClient:
         self.action_error = action_error  # raised by reingest/delete
         self.asks: list[tuple[str, str | None]] = []
         self.uploads: list[tuple] = []
+        self.deletes: list[str] = []
 
     def ask(self, question, customer_id):
         self.asks.append((question, customer_id))
@@ -67,6 +68,7 @@ class FakeClient:
     def delete_document(self, document_id):
         if self.action_error:
             raise self.action_error
+        self.deletes.append(document_id)
         return None
 
 

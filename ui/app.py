@@ -14,11 +14,13 @@ except RuntimeError as exc:
     st.error(str(exc))
     st.stop()
 
-# Adding a page = one file in pages/ + one line here.
+# Adding a page = one file in views/ + one line here. Not pages/: Streamlit would auto-run
+# those files on a first-visit deep link, bypassing this script.
+
 PAGES = [
-    st.Page("pages/ask.py", title="Ask", icon="💬", default=True),
-    st.Page("pages/scenarios.py", title="Demo scenarios", icon="🎬"),
-    st.Page("pages/documents.py", title="Knowledge base", icon="📚"),
+    st.Page("views/ask.py", title="Ask", icon="💬", default=True),
+    st.Page("views/scenarios.py", title="Demo scenarios", icon="🎬"),
+    st.Page("views/documents.py", title="Knowledge base", icon="📚"),
 ]
 navigation = st.navigation(PAGES)
 

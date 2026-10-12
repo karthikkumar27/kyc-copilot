@@ -77,3 +77,19 @@ def test_sidebar_shows_degraded_dependencies():
     sidebar = [m.value for m in at.sidebar.markdown]
     assert "✅ Database" in sidebar
     assert any(line.startswith("❌ LLM gateway") for line in sidebar)
+
+
+def test_failed_ask_does_not_show_the_previous_answer_as_current():
+    client = FakeClient()
+    at = start(client)
+    ask(at, "First question?", "CUS-10001")
+    client.error = ApiError(500, "Internal error", "req500")
+    ask(at, "Second question?", "CUS-10002")
+    assert at.error
+    assert len(at.expander) == 1 and "First question" in at.expander[0].label
+
+
+def test_latest_answer_is_labelled_with_its_question():
+    at = ask(start(FakeClient()), "Why did verification fail?", "CUS-10001")
+    assert any("CUS\-10001" in c.value and "Why did verification fail" in c.value
+               for c in at.caption)

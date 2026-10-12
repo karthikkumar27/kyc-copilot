@@ -113,7 +113,7 @@ ui/                  Streamlit web console (a separate image; never imports app/
   app.py             entry point: navigation, sidebar (identity, status)
   api_client.py      the only HTTP code: typed results, ApiError / ApiUnavailable
   identity.py deps.py components.py formatting.py scenario_data.py
-  pages/             ask.py, scenarios.py, documents.py
+  views/             ask.py, scenarios.py, documents.py (not pages/: see §6.12)
   tests/             httpx MockTransport + Streamlit AppTest
 app/
   main.py            FastAPI app: lifespan (logging, adapter validation), request-ID middleware,
@@ -457,7 +457,9 @@ request ID from the `ContextVar`) and **commits**. Actions in use: `ask`, `docum
   `escape_md()` before reaching a Markdown widget.
 - **Live status:** the document table is an `st.fragment` that re-polls every 3 s only while a
   document is `queued` or `processing`.
-- **Extending:** a page is one file in `ui/pages/` plus one `st.Page` line in `ui/app.py`. OIDC
+- **Extending:** a page is one file in `ui/views/` plus one `st.Page` line in `ui/app.py`. The
+  folder is not called `pages/`, because Streamlit auto-runs files there on a first-visit deep
+  link, bypassing `app.py` (sidebar, identity, status). OIDC
   (roadmap project 2) changes only `identity.py` and `api_client.py`.
 
 ---

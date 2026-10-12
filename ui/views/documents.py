@@ -9,6 +9,7 @@ from scenario_data import FLASH_KEY
 
 POLL_SECONDS = 3
 POLLING_KEY = "documents_polling"
+CONFIRM_DELETE_KEY = "documents_confirm_delete"  # id of the document awaiting confirmation
 FILE_TYPES = ["pdf", "png", "jpg", "jpeg", "md", "txt"]  # mirrors the API's allow-list
 SOURCE_TYPES = ["sop", "regulation", "faq", "script"]
 
@@ -28,18 +29,29 @@ def table_rows(documents: list[Document]) -> list[dict]:
     ]
 
 
-@st.dialog("Delete document")
+def document_label(document: Document) -> str:
+    # Re-uploads of an updated SOP share a filename (FSD OD-03), so show date and ID too.
+    created = document.created_at[:16].replace("T", " ")
+    return f"{document.filename} · {created} · {document.id[:8]}"
+
+
 def confirm_delete(document: Document) -> None:
-    st.write(f"Delete **{escape_md(document.filename)}**? Its chunks and stored file will be "
-             "removed permanently.")
-    if st.button("Delete permanently", type="primary"):
+    # Inline, not st.dialog: a dialog opened inside the polling fragment never runs its button.
+    st.warning(f"Delete **{escape_md(document_label(document))}**? Its chunks and stored file "
+               "will be removed permanently.")
+    yes, no = st.columns(2)
+    if yes.button("Delete permanently", type="primary", key="confirm_delete"):
+        st.session_state.pop(CONFIRM_DELETE_KEY, None)
         try:
             get_client().delete_document(document.id)
         except (ApiError, ApiUnavailable) as exc:
             show_error(exc)
             return
-        st.session_state[FLASH_KEY] = f"Deleted {document.filename}"
-        st.rerun()
+        st.session_state[FLASH_KEY] = f"Deleted {escape_md(document.filename)}"
+        st.rerun(scope="app")
+    if no.button("Cancel", key="cancel_delete"):
+        st.session_state.pop(CONFIRM_DELETE_KEY, None)
+        st.rerun(scope="app")
 
 
 def document_actions(documents: list[Document]) -> None:
@@ -47,8 +59,8 @@ def document_actions(documents: list[Document]) -> None:
     if not identity.can_manage_documents:
         return
     by_id = {d.id: d for d in documents}
-    selected = st.selectbox("Selected document", list(by_id),
-                            format_func=lambda doc_id: by_id[doc_id].filename)
+    selected = st.selectbox("Selected document", list(by_id), key="selected_document",
+                            format_func=lambda doc_id: document_label(by_id[doc_id]))
     document = by_id[selected]
     left, right = st.columns(2)
     with left:
@@ -58,14 +70,16 @@ def document_actions(documents: list[Document]) -> None:
             except (ApiError, ApiUnavailable) as exc:
                 show_error(exc)
             else:
-                st.toast(f"Re-ingest queued for {document.filename}")
+                st.toast(f"Re-ingest queued for {escape_md(document.filename)}")
                 st.session_state[POLLING_KEY] = True
                 st.rerun(scope="app")
         st.caption("On the local stack, a re-ingest within 1 hour of the last run may not start "
                    "(TSD T1).")
     with right:
         if identity.can_delete_documents and st.button("Delete", key="delete"):
-            confirm_delete(document)
+            st.session_state[CONFIRM_DELETE_KEY] = document.id
+    if st.session_state.get(CONFIRM_DELETE_KEY) == document.id:
+        confirm_delete(document)
 
 
 @st.fragment(run_every=POLL_SECONDS if st.session_state.get(POLLING_KEY) else None)
@@ -108,7 +122,8 @@ def upload_section() -> None:
             show_error(exc)
             return
         st.session_state[FLASH_KEY] = ("Already in the knowledge base (deduplicated)"
-                                       if result.deduplicated else f"Queued {file.name}")
+                                       if result.deduplicated
+                                       else f"Queued {escape_md(file.name)}")
         st.session_state[POLLING_KEY] = not result.deduplicated
         st.rerun()
 

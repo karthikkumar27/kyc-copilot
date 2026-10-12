@@ -177,7 +177,11 @@ def _api_error(response: httpx.Response, sent_request_id: str) -> ApiError:
     detail = body.get("detail") or response.reason_phrase or "Request failed"
     if isinstance(detail, list):  # FastAPI validation errors
         detail = "; ".join(_validation_message(item) for item in detail)
-    request_id = body.get("request_id") or response.headers.get("x-request-id") or sent_request_id
+    request_id = next(
+        (rid for rid in (body.get("request_id"), response.headers.get("x-request-id"))
+         if rid and rid != "-"),  # the API's 500 handler can report "-" (its logs have ours)
+        sent_request_id,
+    )
     return ApiError(response.status_code, str(detail), str(request_id))
 
 

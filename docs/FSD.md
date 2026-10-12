@@ -337,11 +337,11 @@ flowchart TB
 |---|---|---|---|
 | FR-UI-01 | The console shall offer Ask, Demo scenarios and Knowledge base pages, and show service status (API, database, LLM gateway) in the sidebar of every page. | Implemented | `ui/app.py`, `ui/components.py` |
 | FR-UI-02 | The console shall reach data only through the public API, and shall hold no business rules. | Implemented | `ui/api_client.py` |
-| FR-UI-03 | When an answer carries an `agent_notice`, the notice shall be shown before the answer. | Implemented | `ui/pages/ask.py` |
-| FR-UI-04 | Model output shall be shown as plain text, never rendered as Markdown or HTML. | Implemented | `ui/pages/ask.py` |
-| FR-UI-05 | Each demo scenario shall run with one click: it sets the role, asks its question once, and shows what to look for. | Implemented | `ui/pages/scenarios.py` |
-| FR-UI-06 | Upload and re-ingest controls shall be shown only to supervisors and admins, and delete only to admins. This is a display rule; the API enforces permissions. | Implemented | `ui/pages/documents.py` |
-| FR-UI-07 | While any document is `queued` or `processing`, the document table shall refresh every 3 seconds, and stop when none is. | Implemented | `ui/pages/documents.py` |
+| FR-UI-03 | When an answer carries an `agent_notice`, the notice shall be shown before the answer. | Implemented | `ui/views/ask.py` |
+| FR-UI-04 | Model output shall be shown as plain text, never rendered as Markdown or HTML. | Implemented | `ui/views/ask.py` |
+| FR-UI-05 | Each demo scenario shall run with one click: it sets the role, asks its question once, and shows what to look for. | Implemented | `ui/views/scenarios.py` |
+| FR-UI-06 | Upload and re-ingest controls shall be shown only to supervisors and admins, and delete only to admins. This is a display rule; the API enforces permissions. | Implemented | `ui/views/documents.py` |
+| FR-UI-07 | While any document is `queued` or `processing`, the document table shall refresh every 3 seconds, and stop when none is. | Implemented | `ui/views/documents.py` |
 | FR-UI-08 | In dev mode the user chooses a role and user ID in the sidebar, and they are sent to the API as headers. | Implemented | `ui/identity.py` |
 | FR-UI-09 | Errors shall show the API's message and the request ID; an unreachable API shall be reported with its URL. | Implemented | `ui/components.py` |
 

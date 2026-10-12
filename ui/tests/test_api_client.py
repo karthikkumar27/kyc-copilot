@@ -177,3 +177,16 @@ def test_transport_failures_become_unavailable(exc):
 ])
 def test_validate_ask_input(question, customer, errors):
     assert len(validate_ask_input(question, customer)) == errors
+
+
+def test_placeholder_request_id_falls_back_to_the_one_sent():
+    # The API's 500 handler can report "-"; its logs carry the ID the client sent.
+    sent = []
+
+    def handler(request):
+        sent.append(request.headers["x-request-id"])
+        return httpx.Response(500, json={"detail": "Internal error", "request_id": "-"})
+
+    with pytest.raises(ApiError) as info:
+        make_client(handler).list_documents()
+    assert info.value.request_id == sent[0]

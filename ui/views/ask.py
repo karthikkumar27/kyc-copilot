@@ -37,18 +37,19 @@ def render_result(result: AskResult) -> None:
         st.code(result.suggested_reply, language=None, wrap_lines=True)
 
 
-def ask_and_record(question: str, customer_id: str, look_for: str | None) -> None:
+def ask_and_record(question: str, customer_id: str, look_for: str | None) -> bool:
     role = current_identity().role
     try:
         with st.spinner("Asking the copilot…"):
             result = get_client().ask(question, customer_id or None)
     except (ApiError, ApiUnavailable) as exc:
         show_error(exc)
-        return
+        return False
     history = st.session_state.setdefault(HISTORY_KEY, [])
     history.insert(0, {"title": history_title(role, customer_id, question),
                        "result": result, "look_for": look_for})
     del history[HISTORY_LIMIT:]
+    return True
 
 
 st.title("Ask the copilot")
@@ -67,21 +68,24 @@ with st.form("ask_form"):
     st.text_input("Customer reference (optional)", key=CUSTOMER_KEY, placeholder="CUS-12345")
     submitted = st.form_submit_button("Ask", type="primary")
 
+failed = False  # a failed ask must not leave an older answer looking current
 if submitted or scenario:
     question = st.session_state[QUESTION_KEY].strip()
     customer_id = st.session_state[CUSTOMER_KEY].strip()
     errors = validate_ask_input(question, customer_id)
     for message in errors:
         st.warning(message)
-    if not errors:
-        ask_and_record(question, customer_id, scenario.look_for if scenario else None)
+    failed = bool(errors) or not ask_and_record(
+        question, customer_id, scenario.look_for if scenario else None)
 
 history = st.session_state.get(HISTORY_KEY, [])
 if history:
-    latest, *earlier = history
-    if latest["look_for"]:
-        st.info(f"Look for: {escape_md(latest['look_for'])}")
-    render_result(latest["result"])
+    latest, earlier = (None, history) if failed else (history[0], history[1:])
+    if latest:
+        if latest["look_for"]:
+            st.info(f"Look for: {escape_md(latest['look_for'])}")
+        st.caption(escape_md(latest["title"]))  # which question and customer this answers
+        render_result(latest["result"])
     if earlier:
         st.divider()
         st.subheader("Earlier in this session")
