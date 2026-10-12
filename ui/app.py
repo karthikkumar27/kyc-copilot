@@ -18,6 +18,7 @@ except RuntimeError as exc:
 PAGES = [
     st.Page("pages/ask.py", title="Ask", icon="💬", default=True),
     st.Page("pages/scenarios.py", title="Demo scenarios", icon="🎬"),
+    st.Page("pages/documents.py", title="Knowledge base", icon="📚"),
 ]
 navigation = st.navigation(PAGES)
 
