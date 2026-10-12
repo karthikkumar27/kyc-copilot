@@ -96,7 +96,7 @@ flowchart LR
 | Queue (local) | arq on Redis 7 | |
 | Queue (GCP) | Cloud Tasks pushing HTTP requests to a Cloud Run worker | |
 | LLM access | `openai` Python SDK → LiteLLM proxy | `ghcr.io/berriai/litellm:main-stable` (not pinned) |
-| Chat models | `gemini-2.5-flash` (default), `claude-haiku-5-5` (local fallback), `gemini-2.5-pro` (GCP fallback) | `config/litellm/` |
+| Chat models | `gemini-3.8-flash` (local default), `gemini-2.5-flash` (GCP default), `claude-haiku-5-5` (local fallback), `gemini-2.5-pro` (GCP fallback) | `config/litellm/` |
 | Embeddings | `gemini-embedding-001`, 1,536 dimensions | `EMBEDDING_DIM` |
 | OCR | pypdf + Tesseract (`eng+msa`) + pdf2image/poppler; optional Google Document AI | |
 | PII | Microsoft Presidio (spaCy `en_core_web_sm`) + regex; optional Google Sensitive Data Protection | |
@@ -655,7 +655,7 @@ Base URL: `http://localhost:8000` locally. OpenAPI and Swagger UI are at `/docs`
 
 | Alias | Local (`local.yaml`) | GCP (`gcp.yaml`) | AWS / Azure |
 |---|---|---|---|
-| `chat-default` | `gemini/gemini-2.5-flash` | `vertex_ai/gemini-2.5-flash` | placeholder (`model_list: []`) |
+| `chat-default` | `gemini/gemini-3.8-flash` | `vertex_ai/gemini-2.5-flash` | placeholder (`model_list: []`) |
 | `chat-fallback` | `anthropic/claude-haiku-5-5` | `vertex_ai/gemini-2.5-pro` | — |
 | `embed-default` | `gemini/gemini-embedding-001` | `vertex_ai/gemini-embedding-001` | — |
 
