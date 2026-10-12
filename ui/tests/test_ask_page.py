@@ -91,5 +91,5 @@ def test_failed_ask_does_not_show_the_previous_answer_as_current():
 
 def test_latest_answer_is_labelled_with_its_question():
     at = ask(start(FakeClient()), "Why did verification fail?", "CUS-10001")
-    assert any("CUS\-10001" in c.value and "Why did verification fail" in c.value
+    assert any(r"CUS\-10001" in c.value and "Why did verification fail" in c.value
                for c in at.caption)
