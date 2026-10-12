@@ -1,0 +1,23 @@
+[
+  {"tenant_id": "limaupay", "customer_id": "CUS-10001", "display_name_masked": "Nur***** b***i A***",
+   "verification_tier": "BASIC", "verification_status": "REJECTED", "reason_code": "DOC_BLURRY",
+   "document_type": "MYKAD", "attempts_used": 1, "attempts_max": 3, "last_attempt_at": "2026-10-09T14:12:00+08:00"},
+  {"tenant_id": "limaupay", "customer_id": "CUS-10002", "display_name_masked": "Raj**** a/l M*****",
+   "verification_tier": "BASIC", "verification_status": "REJECTED", "reason_code": "NAME_MISMATCH",
+   "document_type": "MYKAD", "attempts_used": 2, "attempts_max": 3, "last_attempt_at": "2026-10-10T09:40:00+08:00"},
+  {"tenant_id": "limaupay", "customer_id": "CUS-10003", "display_name_masked": "Tan *** H***",
+   "verification_tier": "BASIC", "verification_status": "REJECTED", "reason_code": "LIVENESS_FAILED",
+   "document_type": "PASSPORT", "attempts_used": 3, "attempts_max": 3, "last_attempt_at": "2026-10-10T11:05:00+08:00"},
+  {"tenant_id": "limaupay", "customer_id": "CUS-10004", "display_name_masked": "Ahm** F*****",
+   "verification_tier": "BASIC", "verification_status": "UNDER_REVIEW", "reason_code": "SANCTIONS_SCREENING_HIT",
+   "document_type": "PASSPORT", "attempts_used": 1, "attempts_max": 3, "last_attempt_at": "2026-10-08T16:30:00+08:00"},
+  {"tenant_id": "limaupay", "customer_id": "CUS-10005", "display_name_masked": "Sit* N******",
+   "verification_tier": "FULL", "verification_status": "VERIFIED", "reason_code": null,
+   "document_type": "MYKAD", "attempts_used": 1, "attempts_max": 3, "last_attempt_at": "2026-09-30T10:00:00+08:00"},
+  {"tenant_id": "limaupay", "customer_id": "CUS-10006", "display_name_masked": "Lee *** K***",
+   "verification_tier": "BASIC", "verification_status": "PENDING", "reason_code": null,
+   "document_type": "MYKAD", "attempts_used": 1, "attempts_max": 3, "last_attempt_at": "2026-10-07T20:15:00+08:00"},
+  {"tenant_id": "limaupay", "customer_id": "CUS-10007", "display_name_masked": "Mar** L****",
+   "verification_tier": "BASIC", "verification_status": "REJECTED", "reason_code": "FRAUD_SUSPECTED",
+   "document_type": "MYKAD", "attempts_used": 2, "attempts_max": 3, "last_attempt_at": "2026-10-09T22:48:00+08:00"}
+]

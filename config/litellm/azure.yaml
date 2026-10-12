@@ -1,0 +1,14 @@
+# PLACEHOLDER: Azure gateway config (Azure OpenAI / Azure AI Foundry). Uncomment when the Azure
+# track starts. Prefer managed identity over keys.
+model_list: []
+# model_list:
+#   - model_name: chat-default
+#     litellm_params:
+#       model: azure/<your-deployment-name>
+#       api_base: os.environ/AZURE_OPENAI_ENDPOINT
+#       api_version: os.environ/AZURE_OPENAI_API_VERSION
+#   - model_name: embed-default
+#     litellm_params:
+#       model: azure/<your-embedding-deployment>
+#       api_base: os.environ/AZURE_OPENAI_ENDPOINT
+#       api_version: os.environ/AZURE_OPENAI_API_VERSION

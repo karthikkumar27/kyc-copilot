@@ -1,0 +1,9 @@
+.git
+.env
+.venv
+var
+deploy
+governance
+docs
+eval
+**/__pycache__

@@ -1,0 +1,27 @@
+# Local gateway config. The app only knows the aliases chat-default / chat-fallback / embed-default.
+# Model IDs change often: check the provider docs and update these before you start.
+model_list:
+  - model_name: chat-default
+    litellm_params:
+      model: gemini/gemini-2.5-flash          # Google AI Studio key (free tier is enough to start)
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: chat-fallback
+    litellm_params:
+      model: anthropic/claude-haiku-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: embed-default
+    litellm_params:
+      model: gemini/gemini-embedding-001     # app requests 1536 dims (EMBEDDING_DIM)
+      api_key: os.environ/GEMINI_API_KEY
+
+router_settings:
+  num_retries: 2
+  timeout: 30
+  fallbacks:
+    - chat-default: ["chat-fallback"]
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

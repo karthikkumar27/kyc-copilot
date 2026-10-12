@@ -1,0 +1,12 @@
+# PLACEHOLDER: AWS gateway config (Amazon Bedrock). Uncomment and verify model IDs when the AWS
+# track starts. Auth comes from the ECS task role / IRSA, not keys.
+model_list: []
+# model_list:
+#   - model_name: chat-default
+#     litellm_params:
+#       model: bedrock/<claude-model-id-in-your-region>
+#       aws_region_name: os.environ/AWS_REGION
+#   - model_name: embed-default
+#     litellm_params:
+#       model: bedrock/amazon.titan-embed-text-v2:0
+#       aws_region_name: os.environ/AWS_REGION

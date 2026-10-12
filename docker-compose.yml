@@ -1,0 +1,66 @@
+name: kyc-copilot
+
+x-app: &app
+  build:
+    context: .
+    args:
+      EXTRAS: "gcp,dev"   # gcp libs let you test GCP adapters locally; dev adds pytest/ruff
+  image: kyc-copilot:local
+  env_file: .env
+  volumes:
+    - uploads:/srv/var/uploads
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: kyc
+      POSTGRES_PASSWORD: kyc
+      POSTGRES_DB: kyc
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyc -d kyc"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  litellm:
+    # Pin a specific release tag before relying on this beyond local dev.
+    image: ghcr.io/berriai/litellm:main-stable
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    env_file: .env
+    volumes:
+      - ./config/litellm/local.yaml:/app/config.yaml:ro
+    ports: ["4000:4000"]
+
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  api:
+    <<: *app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+      litellm: {condition: service_started}
+
+  worker:
+    <<: *app
+    command: ["arq", "app.worker.WorkerSettings"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+      litellm: {condition: service_started}
+
+volumes:
+  pgdata:
+  uploads:
