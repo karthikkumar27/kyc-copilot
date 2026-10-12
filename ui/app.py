@@ -17,6 +17,7 @@ except RuntimeError as exc:
 # Adding a page = one file in pages/ + one line here.
 PAGES = [
     st.Page("pages/ask.py", title="Ask", icon="💬", default=True),
+    st.Page("pages/scenarios.py", title="Demo scenarios", icon="🎬"),
 ]
 navigation = st.navigation(PAGES)
 
