@@ -36,6 +36,7 @@ flowchart LR
   subgraph Clients
     U[Agent client / Swagger UI]
     S[scripts/seed.py]
+    W[Web console<br/>streamlit :8501]
   end
   subgraph App["kyc-copilot image (one image, several commands)"]
     API[API<br/>uvicorn app.main:app]
@@ -50,6 +51,7 @@ flowchart LR
 
   U --> API
   S --> API
+  W --> API
   API --> PG
   API --> OBJ
   API --> Q
@@ -107,6 +109,12 @@ flowchart LR
 ## 3. Codebase structure
 
 ```
+ui/                  Streamlit web console (a separate image; never imports app/)
+  app.py             entry point: navigation, sidebar (identity, status)
+  api_client.py      the only HTTP code: typed results, ApiError / ApiUnavailable
+  identity.py deps.py components.py formatting.py scenario_data.py
+  pages/             ask.py, scenarios.py, documents.py
+  tests/             httpx MockTransport + Streamlit AppTest
 app/
   main.py            FastAPI app: lifespan (logging, adapter validation), request-ID middleware,
                      global exception handler, routers
@@ -163,6 +171,7 @@ cloud SDKs.
 | Ingestion worker | `arq app.worker.WorkerSettings` | `worker` | — |
 | Ingestion worker (HTTP) | `uvicorn app.worker_http:app` | — | Cloud Run `kyc-worker`, 2 vCPU / 2 GiB, 900 s timeout, max 3 instances, LiteLLM sidecar |
 | Migrations | `alembic upgrade head` | `migrate` (one-shot; the API and worker wait for it) | Cloud Run job `kyc-migrate` |
+| Web console | `streamlit run app.py` | `ui`, port 8501 | — (local only in v1) |
 | LLM gateway | LiteLLM `--config … --port 4000` | `litellm`, port 4000, mounts `local.yaml` | Sidecar in each service, `gcp.yaml` built into the image |
 | Database | — | `postgres` (pgvector:pg16) | Cloud SQL `kyc-pg`, Postgres 16, reached through a unix socket at `/cloudsql/...` |
 | Queue | — | `redis:7-alpine` | Cloud Tasks queue `kyc-ingest` |
@@ -432,6 +441,25 @@ Melayu: no stemming and no stop words.
 request ID from the `ContextVar`) and **commits**. Actions in use: `ask`, `document.upload`,
 `document.delete`.
 
+### 6.12 Web console (`ui/`)
+
+- **Boundary:** a separate image (`python:3.12-slim`, Streamlit 1.64.0, httpx 0.28.1) that
+  calls the public API over HTTP. Nothing in `ui/` imports from `app/`, so the UI cannot get
+  around access control, redaction or the disclosure policy.
+- **Units:** `api_client.py` (all HTTP calls, typed dataclasses; `ApiError` for non-2xx,
+  `ApiUnavailable` for connection errors and timeouts; a fresh `X-Request-Id` on every call),
+  `identity.py` (dev-mode role and user from the sidebar, sent as headers), `deps.py`
+  (settings, `get_client()`, `/readyz` cached for 15 s), `components.py` (errors, status panel),
+  `formatting.py` (pure helpers), `scenario_data.py`, and one file per page.
+- **Timeouts:** `/ask` 90 s (see T9), upload 60 s, everything else 10 s.
+- **Rendering safety:** the answer and sources use `st.text` (no Markdown or HTML processing),
+  and the suggested reply uses `st.code`. Other text we did not write goes through
+  `escape_md()` before reaching a Markdown widget.
+- **Live status:** the document table is an `st.fragment` that re-polls every 3 s only while a
+  document is `queued` or `processing`.
+- **Extending:** a page is one file in `ui/pages/` plus one `st.Page` line in `ui/app.py`. OIDC
+  (roadmap project 2) changes only `identity.py` and `api_client.py`.
+
 ---
 
 ## 7. Data design
@@ -676,6 +704,13 @@ longer than 30 s (see §15).
 
 \* placeholder: the service fails at startup.
 
+**Web console (`ui` service)**
+
+| Variable | Default | Notes |
+|---|---|---|
+| `KYC_API_URL` | `http://api:8000` | Base URL of the API |
+| `KYC_UI_AUTH_MODE` | `dev` | Only `dev` is supported; any other value stops the console with a message |
+
 ---
 
 ## 11. Security architecture
@@ -709,7 +744,7 @@ The full OWASP LLM Top 10 mapping is in [`governance/risk_register.md`](../gover
 
 `make up` builds the image (extras `gcp,dev`) and starts postgres → migrate → redis, litellm →
 api, worker. `make seed` uploads the four SOPs through the API (SOP-SUP-04 tagged
-`supervisor,admin`). `make test` and `make lint` run inside the API container.
+`supervisor,admin`). `make test` and `make lint` run inside the API container. The `ui` service serves the console at http://localhost:8501; `make ui-logs` follows its logs.
 
 ### 12.2 GCP (`deploy/terraform/gcp/`)
 
@@ -761,8 +796,7 @@ add the LiteLLM configuration and Terraform.
 
 ### 12.4 Build and CI (`.github/workflows/ci.yml`)
 
-On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e .[dev]`,
-`ruff check .`, `pytest -q`) → `build` job (`docker build`). Planned: an evaluation gate
+On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e .[dev]`, `ruff check .` with the rule set pinned to E4/E7/E9/F in `pyproject.toml`, `pytest -q`) and `ui` job (`pip install -r ui/requirements-dev.txt`, `pytest ui/tests -q`) → `build` job (`docker build` for the API image and the UI image). Planned: an evaluation gate
 (week 3) and a GCP deploy job with Workload Identity Federation (week 6).
 
 ---
@@ -776,6 +810,11 @@ On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e 
 | `tests/test_pii_regex.py` | MyKad (with and without dashes), +60 and 01x mobiles, email, card; amounts are not redacted |
 | `tests/test_prompting.py` | A document cannot close the spotlight tags; out-of-range and non-integer citations dropped; non-JSON output escalates |
 | `tests/test_registry.py` | Every kind registers gcp, aws and azure; unknown provider lists the options; placeholders fail fast |
+| `ui/tests/test_api_client.py` | Headers and request ID on every call; per-method timeouts; multipart upload; JSON mapping; error and unavailable mapping; client-side input checks |
+| `ui/tests/test_formatting.py` | Markdown escaping; citation, status and title formatting; scenario data |
+| `ui/tests/test_ask_page.py` | Answer, sources and reply; restricted notice first; model output not rendered as Markdown; validation; errors; history limit; sidebar status |
+| `ui/tests/test_scenarios_page.py` | One click switches the role and asks exactly once |
+| `ui/tests/test_documents_page.py` | Role-aware controls; failed documents; empty state; 404 on actions; polling switches off |
 
 **Not covered by automated tests:** API routes, ingestion and retrieval against a real Postgres,
 Presidio, the GCP adapters, and end-to-end golden-set evaluation (planned for week 3: DeepEval
@@ -842,3 +881,4 @@ Found by reading the code for this document. None is fixed here. They are record
 | FR-AUTH-* | `app/security.py`, `app/config.py` | — |
 | FR-OPS-*, NFR-PORT-01 | `app/main.py`, `app/api/health.py`, `app/adapters/registry.py`, `app/adapters/factory.py` | `test_registry.py` |
 | NFR-REL-01 | `config/litellm/*.yaml`, `app/llm.py` | — |
+| FR-UI-* | `ui/` | `ui/tests/*` |
