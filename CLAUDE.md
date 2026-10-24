@@ -132,10 +132,10 @@ require violating one.
 | ID | Invariant | Source | Current automated evidence | Required evidence when touched |
 |---|---|---|---|---|
 | INV-01 | Tenant is derived server-side (`DEFAULT_TENANT` now, OIDC claims later), never from request input. Every document, chunk, audit and KYC lookup is tenant-scoped. | BR-06, TSD §6.2, §11 | None | Unit test on the dependency + integration test with two tenants' data |
-| INV-02 | Tenant **and** role-overlap filters are inside **both** the vector and keyword sub-queries, before ranking. No post-retrieval filtering as the access control. | FR-ASK-04, NFR-SEC-01, TSD §6.7 | Golden g011/g012, manual only | Integration test against real Postgres + pgvector proving restricted chunks are never candidates |
+| INV-02 | Tenant **and** role-overlap filters are inside **both** the vector and keyword sub-queries, before ranking. No post-retrieval filtering as the access control. | FR-ASK-04, NFR-SEC-01, TSD §6.7 | Golden g011/g012 via `make eval` (live stack and model; not an integration test) | Integration test against real Postgres + pgvector proving restricted chunks are never candidates |
 | INV-03 | A document the caller may not read returns `404`, identical to a non-existent document, on view, re-ingest and delete. | FR-DOC-08, UC-05 | None | API test per role |
 | INV-04 | Upload and re-ingest: supervisor or admin. Delete: admin only. Unknown role: `403`. | FR-DOC-01/09/10, FR-AUTH-01, FSD §2.1 | None | API test per role and per endpoint |
-| INV-05 | The disclosure policy is deterministic code. For `REJECTED`/`UNDER_REVIEW`, a reason code not on the BR-02 allow-list (including unknown codes) is removed before context is built, status is shown as `UNDER_REVIEW`, the `SCR-REVIEW-01` disclosure rule is added, the fixed `agent_notice` is returned, and `needs_escalation = true` is forced regardless of model output. | FR-KYC-03/04, BR-02/03, UC-03 | `tests/test_kyc_policy.py` | Unit tests + a test asserting the payload sent to the gateway contains no internal reason |
+| INV-05 | The disclosure policy is deterministic code. For `REJECTED`/`UNDER_REVIEW`, a reason code not on the BR-02 allow-list (including unknown codes) is removed before context is built, status is shown as `UNDER_REVIEW`, the `SCR-REVIEW-01` disclosure rule is added, the fixed `agent_notice` is returned, and `needs_escalation = true` is forced regardless of model output. | FR-KYC-03/04, BR-02/03, UC-03 | `tests/test_kyc_policy.py`, `tests/test_answer.py` (gateway payload has no internal reason) | Unit tests + a test asserting the payload sent to the gateway contains no internal reason |
 | INV-06 | Only `SAFE_FIELDS` reach the model; `agent_notice` never reaches the model. | FR-KYC-02, FR-KYC-05 | `tests/test_kyc_policy.py` | Unit test on the allow-list |
 | INV-07 | The question is PII-redacted before embedding, retrieval, any model call and audit. Document text is redacted before chunking, embedding and storage. | FR-ASK-03, FR-ING-03, NFR-PRV-01 | `tests/test_pii_regex.py` (patterns only, not ordering) | Test proving ordering (redactor called before embed/chat/audit) |
 | INV-08 | `customer_id` MUST match `^CUS-\d{5}$`; IC/NRIC numbers are rejected with `422`. | FR-ASK-02, BR-01 | Pydantic schema only | API validation test |
@@ -446,6 +446,10 @@ One SQL statement: vector top `RETRIEVAL_K=20` by cosine distance and keyword to
   context/payload, not only on model output. The golden checks for g004 ("sanction", "screening",
   "watchlist" absent) and g005 ("FRAUD"/"fraud" absent) MUST be deterministic string checks, not an
   LLM judge.
+- Output guard (BR-09, `guard_restricted_output`): in a restricted case an `answer` or
+  `suggested_reply` naming `sanction`, `screening`, `watchlist` or `fraud` is replaced in code. MUST
+  NOT be removed or weakened. Its term list is a business rule: changes need an approved FSD
+  change. It is a second layer, never a substitute for keeping the reason away from the model.
 
 ### 11.3 Prompt injection
 
@@ -525,8 +529,12 @@ One SQL statement: vector top `RETRIEVAL_K=20` by cosine distance and keyword to
 
 - Acceptance suite: `eval/golden/kyc_v0.jsonl`, 12 cases, behaviour classes `answer`,
   `answer_and_escalate`, `restricted`, `refuse_insufficient_context` (FSD §8, §10).
-- The automated runner is Planned (week 3); cases are currently checked manually with the README
-  curl commands.
+- `make eval` (`scripts/eval.py`, FSD §10) runs all cases against the running stack with
+  deterministic checks: forbidden terms, restricted notice, forced escalation, abstention, expected
+  citation. FAIL = a structural check failed; REVIEW = only an expected fact was not found as exact
+  text (read the answer); PASS otherwise. An on-demand workflow (`eval.yml`) runs it in CI. It is
+  not run on every PR, computes no faithfulness or context-precision scores, and does not enforce
+  the thresholds below.
 - Planned release gate (NFR-QUAL-01): faithfulness ≥ 0.85, context precision ≥ 0.80, 100% pass on
   restricted-case and access-control tests, red-team pass rate ≥ 95%. These are **targets, not
   current results**.
@@ -558,9 +566,10 @@ One SQL statement: vector top `RETRIEVAL_K=20` by cosine distance and keyword to
 ### 13.3 Production readiness
 
 Claude MUST NOT describe the system or a change as production-ready while any of these hold:
-the eval runner and NFR-QUAL-01 gate are not in place; OIDC is not implemented; access-control
-retrieval tests run only manually; latency has no measured baseline (NFR-PERF-01). It MAY describe
-specific verified properties.
+the NFR-QUAL-01 thresholds are not computed or enforced in CI (the `make eval` runner exists but
+runs on demand); OIDC is not implemented; access-control retrieval is checked only by golden
+g011/g012, not by Postgres integration tests; latency has no measured baseline (NFR-PERF-01). It
+MAY describe specific verified properties.
 
 ---
 
@@ -642,9 +651,9 @@ approved task; Claude MUST NOT claim they exist until they do.
 
 | Control | Enforces |
 |---|---|
-| Golden-set runner in CI with deterministic `must_not_contain` checks and NFR-QUAL-01 thresholds | INV-05, §13 |
+| Golden-set runner in CI with deterministic `must_not_contain` checks and NFR-QUAL-01 thresholds (partly done: `make eval` and an on-demand workflow; not on every PR, no thresholds) | INV-05, §13 |
 | Postgres + pgvector integration job (compose or service container) for retrieval, dedup, cascade, audit trigger | INV-02, INV-13, INV-20 |
-| Payload-capture test: assert the gateway request never contains internal reason codes or non-safe fields | INV-05, INV-06 |
+| Payload-capture test: assert the gateway request never contains internal reason codes or non-safe fields (partly done: `tests/test_answer.py` covers the restricted case) | INV-05, INV-06 |
 | Import-boundary lint (e.g. import-linter) blocking cloud SDK imports outside `app/adapters/*/<cloud>.py` | INV-17 |
 | Secret scanning (pre-commit and CI) | INV-16 |
 | CODEOWNERS + required review on §2.2 high-risk paths | §2.2 |
