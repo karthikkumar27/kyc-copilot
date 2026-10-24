@@ -25,7 +25,8 @@ INTERNAL_ONLY_EXAMPLES = {"COMPLIANCE_REVIEW", "SANCTIONS_SCREENING_HIT", "FRAUD
 RESTRICTED_SCRIPT_ID = "SCR-REVIEW-01"
 RESTRICTED_AGENT_NOTICE = (
     "Restricted case: this verification is under internal review. Do not state, confirm or "
-    "speculate about any reason. Use script SCR-REVIEW-01 and escalate per SOP-ESC-03."
+    "speculate about any reason. Use script SCR-REVIEW-01 and escalate to Compliance Review "
+    "per SOP-ESC-03."
 )
 
 # BR-09: model output for a restricted case must not contain these (matched case-insensitively

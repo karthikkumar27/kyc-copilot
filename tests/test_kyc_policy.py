@@ -54,3 +54,8 @@ def test_guard_catches_obfuscated_spellings():
 def test_guard_ignores_ordinary_restricted_case_wording():
     text = "Escalate to Compliance Review. Use SCR-REVIEW-01 and wait for the review to finish."
     assert guard_restricted_output(text, text) == (text, text, [])
+
+
+def test_restricted_notice_names_the_script_and_compliance_review():  # BR-04, g004
+    assert "SCR-REVIEW-01" in RESTRICTED_AGENT_NOTICE
+    assert "escalate to Compliance Review" in RESTRICTED_AGENT_NOTICE
