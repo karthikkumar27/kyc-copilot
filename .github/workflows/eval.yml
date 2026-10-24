@@ -1,0 +1,43 @@
+name: eval
+
+# On demand only: calls the real model providers, so it costs money. Needs the repository
+# secrets GEMINI_API_KEY and ANTHROPIC_API_KEY. Fails when any golden case FAILs or the
+# CLAUDE.md section 13 gate (g004, g005, g011, g012) is blocked.
+on:
+  workflow_dispatch:
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write .env
+        run: |
+          cp .env.example .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
+      - name: Start the stack
+        run: docker compose up -d --build api worker
+      - name: Wait for the API
+        run: |
+          for i in $(seq 1 60); do
+            curl -fs http://localhost:8000/readyz && exit 0
+            sleep 5
+          done
+          exit 1
+      - name: Seed the SOPs and wait until they are ready
+        run: |
+          docker compose exec -T api python scripts/seed.py --api-url http://localhost:8000
+          for i in $(seq 1 60); do
+            ready=$(curl -fs -H "X-User-Id: ci" -H "X-User-Role: admin" http://localhost:8000/documents \
+              | jq '[.[] | select(.status == "ready")] | length')
+            [ "$ready" = "4" ] && exit 0
+            sleep 5
+          done
+          exit 1
+      - name: Run the golden set
+        run: docker compose run --rm -v "$PWD/eval:/srv/eval:ro" api python scripts/eval.py --api-url http://api:8000
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail 100 api worker litellm

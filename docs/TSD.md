@@ -754,7 +754,7 @@ The full OWASP LLM Top 10 mapping is in [`governance/risk_register.md`](../gover
 
 `make up` builds the image (extras `gcp,dev`) and starts postgres → migrate → redis, litellm →
 api, worker. `make seed` uploads the four SOPs through the API (SOP-SUP-04 tagged
-`supervisor,admin`). `make test` and `make lint` run inside the API container. The `ui` service serves the console at http://localhost:8501; `make ui-logs` follows its logs.
+`supervisor,admin`). `make test` and `make lint` run inside the API container. `make eval` runs the golden set (`scripts/eval.py`, `eval/` mounted read-only) against the running stack; it calls the model, so it costs money and needs `make seed` first. The `ui` service serves the console at http://localhost:8501; `make ui-logs` follows its logs.
 
 Locally the `litellm` service gets only `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` and
 `LITELLM_MASTER_KEY` (interpolated from `.env`), not the whole `.env`: given the app's
@@ -812,7 +812,7 @@ add the LiteLLM configuration and Terraform.
 
 ### 12.4 Build and CI (`.github/workflows/ci.yml`)
 
-On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e .[dev]`, `ruff check .` with the rule set pinned to E4/E7/E9/F in `pyproject.toml`, `pytest -q`) and `ui` job (`pip install -r ui/requirements-dev.txt`, `pytest ui/tests -q`) → `build` job (`docker build` for the API image and the UI image). Planned: an evaluation gate
+On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e .[dev]`, `ruff check .` with the rule set pinned to E4/E7/E9/F in `pyproject.toml`, `pytest -q`) and `ui` job (`pip install -r ui/requirements-dev.txt`, `pytest ui/tests -q`) → `build` job (`docker build` for the API image and the UI image). On demand (`workflow_dispatch`, `.github/workflows/eval.yml`, needs the `GEMINI_API_KEY` and `ANTHROPIC_API_KEY` repository secrets): an `eval` workflow that starts the stack, seeds, and runs `scripts/eval.py`. Planned: threshold gating
 (week 3) and a GCP deploy job with Workload Identity Federation (week 6).
 
 ---
@@ -826,6 +826,7 @@ On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e 
 | `tests/test_answer.py` | `answer_question` with all dependencies mocked: guard runs only for restricted cases and is audited; gateway payload never contains the internal reason (INV-05) |
 | `tests/test_pii_regex.py` | MyKad (with and without dashes), +60 and 01x mobiles, email, card; amounts are not redacted |
 | `tests/test_main.py` | A forced exception returns `500` with the request ID (given or generated) in body, header and log line, and no exception detail |
+| `tests/test_eval_checks.py` | The golden-set checks in `scripts/eval.py`: forbidden terms, restricted notice, escalation, abstention, citation, advisory facts, gate |
 | `tests/test_prompting.py` | A document cannot close the spotlight tags; out-of-range and non-integer citations dropped; non-JSON output escalates |
 | `tests/test_registry.py` | Every kind registers gcp, aws and azure; unknown provider lists the options; placeholders fail fast |
 | `ui/tests/test_api_client.py` | Headers and request ID on every call; per-method timeouts; multipart upload; JSON mapping; error and unavailable mapping; client-side input checks |
@@ -835,8 +836,8 @@ On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e 
 | `ui/tests/test_documents_page.py` | Role-aware controls; failed documents; empty state; 404 on actions; polling switches off |
 
 **Not covered by automated tests:** API routes, ingestion and retrieval against a real Postgres,
-Presidio, the GCP adapters, and end-to-end golden-set evaluation (planned for week 3: DeepEval
-and RAGAS plus deterministic `must_not_contain` checks). The model card lists the release
+Presidio, the GCP adapters, and the NFR-QUAL-01 thresholds (planned for week 3: DeepEval and RAGAS). The golden set
+itself runs end to end through `make eval`, with deterministic checks only. The model card lists the release
 thresholds.
 
 ---
@@ -890,7 +891,7 @@ Found by reading the code for this document. None is fixed here. They are record
 |---|---|---|
 | FR-ASK-01..02 | `app/api/ask.py` | — (Pydantic) |
 | FR-ASK-03, NFR-PRV-01 | `app/rag/answer.py`, `app/adapters/pii/*` | `test_pii_regex.py` |
-| FR-ASK-04..05, NFR-SEC-01 | `app/rag/retrieve.py`, `app/domain.py` | golden g011/g012 (manual) |
+| FR-ASK-04..05, NFR-SEC-01 | `app/rag/retrieve.py`, `app/domain.py` | golden g011/g012 (`make eval`) |
 | FR-ASK-06..12, NFR-SEC-02..03 | `app/rag/prompting.py`, `app/rag/answer.py`, `app/llm.py` | `test_prompting.py` |
 | FR-KYC-*, BR-09 | `app/kyc/policy.py`, `app/kyc/provider.py`, `app/rag/answer.py` | `test_kyc_policy.py`, `test_answer.py`, golden g004/g005 |
 | FR-DOC-* | `app/api/documents.py`, `app/adapters/storage/*`, `app/adapters/queue/*` | — |

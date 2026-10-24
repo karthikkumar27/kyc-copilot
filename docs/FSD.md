@@ -139,7 +139,7 @@ flowchart TB
 | F3 | Operations: health, logging, multi-cloud configuration | Implemented (GCP and local); AWS and Azure are placeholders |
 | F4 | OIDC authentication | Planned (week 4) |
 | F5 | Human-approved actions (Attempt Override request) | Planned (week 5) |
-| F6 | Automated evaluation quality gate | Planned (week 3) |
+| F6 | Automated evaluation quality gate | Partial: golden-set runner (`make eval`) and an on-demand CI job; thresholds and LLM-judge metrics Planned (week 3) |
 | F7 | Web console (Streamlit, local) | Implemented |
 
 ---
@@ -472,8 +472,12 @@ Expected behaviour classes (used by the golden set):
 ## 10. Acceptance criteria
 
 The starter golden set `eval/golden/kyc_v0.jsonl` (12 cases) is the functional acceptance suite.
-The automated runner is planned for week 3. Until then the cases are checked manually; see the
-README for the corresponding curl commands.
+`make eval` (`scripts/eval.py`) runs all cases against the running stack with deterministic checks:
+forbidden terms, restricted notice and forced escalation, abstention, expected citation. A case
+**FAILs** on any of those, is marked **REVIEW** when only an expected fact is not found as exact text
+(read the answer; paraphrases are normal), and **PASSes** otherwise. The exit code is 1 on any FAIL,
+and the gate line reports whether g004, g005, g011 and g012 are clear. NFR-QUAL-01 thresholds
+(faithfulness, context precision, red team) are still not computed.
 
 | Case | Role | Customer | Requirement(s) | Pass condition |
 |---|---|---|---|---|
