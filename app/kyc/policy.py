@@ -6,6 +6,8 @@ could amount to tipping-off under AML rules. This is enforced in code, not in th
 LLM never receives the internal reason, so no jailbreak can make it reveal it.
 """
 
+import unicodedata
+
 CUSTOMER_DISCLOSABLE: dict[str, str] = {
     "DOC_BLURRY": "The photo of the ID document was not clear enough to read.",
     "DOC_EXPIRED": "The ID document submitted had expired.",
@@ -63,7 +65,15 @@ def guard_restricted_output(answer: str, suggested_reply: str) -> tuple[str, str
     SCR-REVIEW-01 word for word. Returns (answer, reply, names of the fields replaced).
     """
     def hit(text: str) -> bool:
-        return any(term in text.lower() for term in RESTRICTED_OUTPUT_TERMS)
+        # NFKC folds full-width forms; dropping invisible (Cf), space (Z*) and -_. characters
+        # catches "s a n c t i o n", "watch-list" and zero-width tricks.
+        # shortcut: look-alike letters from other scripts (e.g. Cyrillic) are not folded; use a
+        # confusables table if that becomes a real attack path.
+        folded = "".join(
+            ch for ch in unicodedata.normalize("NFKC", text).casefold()
+            if unicodedata.category(ch)[0] not in "ZC" and ch not in "-_."
+        )
+        return any(term in folded for term in RESTRICTED_OUTPUT_TERMS)
 
     guarded = []
     if hit(answer):

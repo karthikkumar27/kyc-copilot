@@ -354,7 +354,7 @@ fails at startup.
 - `guard_restricted_output(answer, suggested_reply) -> (answer, reply, guarded_fields)` (BR-09).
   Pure function. `answer_question` calls it only when `agent_notice` is set, after parsing. A field
   containing any of `RESTRICTED_OUTPUT_TERMS` (`sanction`, `screening`, `watchlist`, `fraud`,
-  case-insensitive substring) is replaced: answer → `RESTRICTED_AGENT_NOTICE`, reply → `""`.
+  matched after NFKC normalisation, casefolding and removing invisible, space and `-_.` characters; look-alike letters from other scripts are not folded) is replaced: answer → `RESTRICTED_AGENT_NOTICE`, reply → `""`.
   Citations are not touched. The audit `detail` gets `guarded_fields` (field names only).
   Unit tests: `tests/test_kyc_policy.py`, `tests/test_answer.py`.
 

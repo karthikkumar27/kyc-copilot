@@ -43,3 +43,14 @@ def test_guard_changes_only_the_field_that_hits():
 def test_guard_leaves_clean_output_alone():
     out = guard_restricted_output("Escalate to Compliance Review.", "We are reviewing your case.")
     assert out == ("Escalate to Compliance Review.", "We are reviewing your case.", [])
+
+
+def test_guard_catches_obfuscated_spellings():
+    for text in ["s a n c t i o n s", "sanc​tions", "ＳＡＮＣＴＩＯＮ", "watch-list", "Watch List",
+                 "f.r.a.u.d", "screen­ING", "SANCTIONS".lower().upper()]:
+        assert guard_restricted_output(text, "ok")[0] == RESTRICTED_AGENT_NOTICE, text
+
+
+def test_guard_ignores_ordinary_restricted_case_wording():
+    text = "Escalate to Compliance Review. Use SCR-REVIEW-01 and wait for the review to finish."
+    assert guard_restricted_output(text, text) == (text, text, [])
