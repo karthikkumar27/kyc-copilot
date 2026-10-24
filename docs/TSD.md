@@ -351,7 +351,12 @@ fails at startup.
   `(tenant_id, customer_id)`. Any other `KYC_STATUS_PROVIDER` value raises `ValueError` at startup.
 - `build_account_context(record) -> (context, agent_notice)`. This is a pure function that copies
   only `SAFE_FIELDS` into the context, then applies the decision in FSD §6 (BR-02 and BR-03).
-  Unit tests: `tests/test_kyc_policy.py`.
+- `guard_restricted_output(answer, suggested_reply) -> (answer, reply, guarded_fields)` (BR-09).
+  Pure function. `answer_question` calls it only when `agent_notice` is set, after parsing. A field
+  containing any of `RESTRICTED_OUTPUT_TERMS` (`sanction`, `screening`, `watchlist`, `fraud`,
+  matched after NFKC normalisation, casefolding and removing invisible, space and `-_.` characters; look-alike letters from other scripts are not folded) is replaced: answer → `RESTRICTED_AGENT_NOTICE`, reply → `""`.
+  Citations are not touched. The audit `detail` gets `guarded_fields` (field names only).
+  Unit tests: `tests/test_kyc_policy.py`, `tests/test_answer.py`.
 
 ### 6.5 Chunking (`app/rag/chunking.py`)
 
@@ -544,7 +549,7 @@ erDiagram
 
 | Action | `detail` keys |
 |---|---|
-| `ask` | `question_redacted`, `customer_id`, `retrieved_chunk_ids[]`, `cited_chunk_ids[]`, `tool_calls[]` (`{tool, customer_id, found}`), `restricted_case`, `answer`, `model`, `usage`, `latency_ms` |
+| `ask` | `question_redacted`, `customer_id`, `retrieved_chunk_ids[]`, `cited_chunk_ids[]`, `tool_calls[]` (`{tool, customer_id, found}`), `restricted_case`, `guarded_fields[]`, `answer`, `model`, `usage`, `latency_ms` |
 | `document.upload` | `document_id`, `filename` |
 | `document.delete` | `document_id`, `filename` |
 
@@ -814,7 +819,8 @@ On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e 
 | Test file | Covers |
 |---|---|
 | `tests/test_chunking.py` | Size limit, heading → section, section carried across pages, sequential indices, section-prefixed embedding text, empty input |
-| `tests/test_kyc_policy.py` | Disclosable reasons explained; internal and unknown reasons never present in the context; restricted notice; field allow-list; verified customer |
+| `tests/test_kyc_policy.py` | Disclosable reasons explained; internal and unknown reasons never present in the context; restricted notice; field allow-list; verified customer; BR-09 output guard |
+| `tests/test_answer.py` | `answer_question` with all dependencies mocked: guard runs only for restricted cases and is audited; gateway payload never contains the internal reason (INV-05) |
 | `tests/test_pii_regex.py` | MyKad (with and without dashes), +60 and 01x mobiles, email, card; amounts are not redacted |
 | `tests/test_prompting.py` | A document cannot close the spotlight tags; out-of-range and non-integer citations dropped; non-JSON output escalates |
 | `tests/test_registry.py` | Every kind registers gcp, aws and azure; unknown provider lists the options; placeholders fail fast |
@@ -882,7 +888,7 @@ Found by reading the code for this document. None is fixed here. They are record
 | FR-ASK-03, NFR-PRV-01 | `app/rag/answer.py`, `app/adapters/pii/*` | `test_pii_regex.py` |
 | FR-ASK-04..05, NFR-SEC-01 | `app/rag/retrieve.py`, `app/domain.py` | golden g011/g012 (manual) |
 | FR-ASK-06..12, NFR-SEC-02..03 | `app/rag/prompting.py`, `app/rag/answer.py`, `app/llm.py` | `test_prompting.py` |
-| FR-KYC-* | `app/kyc/policy.py`, `app/kyc/provider.py` | `test_kyc_policy.py`, golden g004/g005 |
+| FR-KYC-*, BR-09 | `app/kyc/policy.py`, `app/kyc/provider.py`, `app/rag/answer.py` | `test_kyc_policy.py`, `test_answer.py`, golden g004/g005 |
 | FR-DOC-* | `app/api/documents.py`, `app/adapters/storage/*`, `app/adapters/queue/*` | — |
 | FR-ING-* | `app/rag/ingest.py`, `app/rag/chunking.py`, `app/adapters/ocr/*`, `app/worker.py`, `app/worker_http.py` | `test_chunking.py` |
 | FR-AUD-* | `app/db/audit.py`, `migrations/versions/0001_initial.py` | — |

@@ -8,7 +8,7 @@ from app.adapters.factory import get_pii
 from app.config import get_settings
 from app.db.audit import write_audit
 from app.domain import ROLE_SCOPES
-from app.kyc.policy import build_account_context
+from app.kyc.policy import build_account_context, guard_restricted_output
 from app.kyc.provider import get_kyc_provider
 from app.llm import chat_json, embed_texts
 from app.logging_setup import request_id_var
@@ -60,8 +60,12 @@ async def answer_question(
         )
         parsed = parse_answer(content, n_chunks=len(chunks))
 
+    guarded_fields: list[str] = []
     if agent_notice:
         parsed["needs_escalation"] = True
+        parsed["answer"], parsed["suggested_reply"], guarded_fields = guard_restricted_output(
+            parsed["answer"], parsed["suggested_reply"]
+        )
 
     citations = [
         {
@@ -89,6 +93,7 @@ async def answer_question(
             "cited_chunk_ids": [c["chunk_id"] for c in citations],
             "tool_calls": tool_calls,
             "restricted_case": agent_notice is not None,
+            "guarded_fields": guarded_fields,
             "answer": parsed["answer"],
             "model": model,
             "usage": usage,
