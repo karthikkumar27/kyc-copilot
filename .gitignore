@@ -10,3 +10,6 @@ var/
 *.tfstate*
 *.tfvars
 !*.tfvars.example
+
+# Personal step-by-step roadmap, kept local
+/docs/ROADMAP.md

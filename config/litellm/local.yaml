@@ -3,7 +3,7 @@
 model_list:
   - model_name: chat-default
     litellm_params:
-      model: gemini/gemini-2.5-flash          # Google AI Studio key (free tier is enough to start)
+      model: gemini/gemini-3.8-flash          # Google AI Studio key; 2.5-flash is closed to new users
       api_key: os.environ/GEMINI_API_KEY
   - model_name: chat-fallback
     litellm_params:
