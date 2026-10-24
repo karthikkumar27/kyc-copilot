@@ -438,7 +438,10 @@ Melayu: no stemming and no stop words.
   "exception"?}` to stdout, a format Cloud Logging parses.
 - HTTP middleware takes `x-request-id` from the request or generates `uuid4().hex`, stores it in a
   `ContextVar`, and adds it to the response headers.
-- The global exception handler logs the stack trace and returns a generic `500` with the request ID.
+- The global exception handler runs outside the middleware (it is Starlette's outermost layer), so
+  the middleware also stores the ID on `request.state`. The handler re-sets the `ContextVar` for its
+  log line, logs the stack trace, and returns a generic `500` with the ID in the body and in the
+  `x-request-id` header.
 
 ### 6.11 Audit (`app/db/audit.py`)
 
@@ -822,6 +825,7 @@ On a push to `main` or a pull request: `test` job (Python 3.12, `pip install -e 
 | `tests/test_kyc_policy.py` | Disclosable reasons explained; internal and unknown reasons never present in the context; restricted notice; field allow-list; verified customer; BR-09 output guard |
 | `tests/test_answer.py` | `answer_question` with all dependencies mocked: guard runs only for restricted cases and is audited; gateway payload never contains the internal reason (INV-05) |
 | `tests/test_pii_regex.py` | MyKad (with and without dashes), +60 and 01x mobiles, email, card; amounts are not redacted |
+| `tests/test_main.py` | A forced exception returns `500` with the request ID (given or generated) in body, header and log line, and no exception detail |
 | `tests/test_prompting.py` | A document cannot close the spotlight tags; out-of-range and non-integer citations dropped; non-JSON output escalates |
 | `tests/test_registry.py` | Every kind registers gcp, aws and azure; unknown provider lists the options; placeholders fail fast |
 | `ui/tests/test_api_client.py` | Headers and request ID on every call; per-method timeouts; multipart upload; JSON mapping; error and unavailable mapping; client-side input checks |
