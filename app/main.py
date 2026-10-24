@@ -38,6 +38,7 @@ app = FastAPI(title="KYC Support Copilot", version="0.1.0", lifespan=lifespan)
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+    request.state.request_id = request_id  # the 500 handler runs outside this middleware
     token = request_id_var.set(request_id)
     try:
         response = await call_next(request)
@@ -50,9 +51,14 @@ async def request_context(request: Request, call_next):
 @app.exception_handler(Exception)
 async def unhandled(request: Request, exc: Exception) -> JSONResponse:
     # Never leak stack traces or provider errors to clients; the request id links to logs.
-    log.exception("unhandled error")
-    return JSONResponse({"detail": "Internal error", "request_id": request_id_var.get()},
-                        status_code=500)
+    request_id = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+    token = request_id_var.set(request_id)
+    try:
+        log.exception("unhandled error")
+    finally:
+        request_id_var.reset(token)
+    return JSONResponse({"detail": "Internal error", "request_id": request_id},
+                        status_code=500, headers={"x-request-id": request_id})
 
 
 app.include_router(health.router)
