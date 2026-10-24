@@ -26,6 +26,10 @@ RESTRICTED_AGENT_NOTICE = (
     "speculate about any reason. Use script SCR-REVIEW-01 and escalate per SOP-ESC-03."
 )
 
+# BR-09: model output for a restricted case must not contain these (matched case-insensitively
+# anywhere in the text), whatever the question said. Output only; the model never gets the reason.
+RESTRICTED_OUTPUT_TERMS = ("sanction", "screening", "watchlist", "fraud")
+
 SAFE_FIELDS = (
     "customer_id", "verification_status", "verification_tier", "document_type",
     "attempts_used", "attempts_max", "last_attempt_at", "display_name_masked",
@@ -50,3 +54,22 @@ def build_account_context(record: dict) -> tuple[dict, str | None]:
         return context, RESTRICTED_AGENT_NOTICE
 
     return context, None
+
+
+def guard_restricted_output(answer: str, suggested_reply: str) -> tuple[str, str, list[str]]:
+    """BR-09: for a restricted case, replace any output field that names a withheld topic.
+
+    The answer becomes the fixed agent notice; the customer reply is emptied so the agent uses
+    SCR-REVIEW-01 word for word. Returns (answer, reply, names of the fields replaced).
+    """
+    def hit(text: str) -> bool:
+        return any(term in text.lower() for term in RESTRICTED_OUTPUT_TERMS)
+
+    guarded = []
+    if hit(answer):
+        answer = RESTRICTED_AGENT_NOTICE
+        guarded.append("answer")
+    if hit(suggested_reply):
+        suggested_reply = ""
+        guarded.append("suggested_reply")
+    return answer, suggested_reply, guarded

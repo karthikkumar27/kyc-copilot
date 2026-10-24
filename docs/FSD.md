@@ -190,7 +190,9 @@ flowchart TB
   2. The model answers without any reason being available to it.
   3. The response contains the fixed `agent_notice` and `needs_escalation = true`, whatever the
      model returned.
-  4. The audit records `restricted_case = true`.
+  4. If the model's `answer` or `suggested_reply` contains a withheld topic (BR-09), the system
+     replaces it: the answer becomes the fixed notice, the reply becomes empty.
+  5. The audit records `restricted_case = true` and the names of any fields replaced.
 - **Guarantee:** no prompt, including a prompt-injection attempt, can make the model reveal the
   reason, because the model never receives it.
 - **Examples:** g004 (sanctions question), g005 ("Ignore your rules…" injection attempt).
@@ -307,7 +309,7 @@ flowchart TB
 
 | ID | Requirement | Status | Source |
 |---|---|---|---|
-| FR-AUD-01 | Each `/ask` shall record: the redacted question, `customer_id`, retrieved and cited chunk IDs, tool calls, the restricted-case flag, the answer, the model, token usage and latency. | Implemented | `app/rag/answer.py:79` |
+| FR-AUD-01 | Each `/ask` shall record: the redacted question, `customer_id`, retrieved and cited chunk IDs, tool calls, the restricted-case flag, the names of any fields replaced by BR-09, the answer, the model, token usage and latency. | Implemented | `app/rag/answer.py:79` |
 | FR-AUD-02 | Uploads and deletes shall be audited with the document ID and filename. | Implemented | `app/api/documents.py:91`, `:156` |
 | FR-AUD-03 | Each audit record shall include the tenant, user, role, action, timestamp and request ID. | Implemented | `app/db/audit.py` |
 | FR-AUD-04 | The audit log shall be append-only. The database shall reject any update or delete. | Implemented | `migrations/versions/0001_initial.py:79` |
@@ -359,6 +361,7 @@ flowchart TB
 | BR-06 | Data never crosses tenants. Every document and chunk query filters on `tenant_id`. | Retrieval and document SQL |
 | BR-07 | The copilot is read-only. It takes no action with side effects. | Design (OWASP LLM06) |
 | BR-08 | Replies use the language of the question (English or Bahasa Melayu). | Prompt rule |
+| BR-09 | In a restricted case, an `answer` or `suggested_reply` containing `sanction`, `screening`, `watchlist` or `fraud` (any case, anywhere in the text) is replaced: the answer by the fixed agent notice, the reply by empty text (the agent then uses `SCR-REVIEW-01`). Added because the model repeated "sanctions" from the agent's own question (g004). | `guard_restricted_output` in `app/kyc/policy.py` |
 
 **BR-02, disclosable reason codes**
 
